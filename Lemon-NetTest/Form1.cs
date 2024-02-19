@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
+using System.ServiceProcess;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -35,7 +36,7 @@ namespace Lemon_NetTest
             //tcpServer.Start(5025);
             tcpServer.DataReceived += TcpServer_DataReceived;
 
-            tcpClient.Start("127.0.0.1",5025);
+           // tcpClient.Start("127.0.0.1",5025);
             
         }
         TcpClient tcpClient = new TcpClient();
@@ -46,7 +47,8 @@ namespace Lemon_NetTest
 
         private void button1_Click(object sender, EventArgs e)
         {
-            tcpClient.SendMessage("hello,world");
+            //tcpClient.SendMessage("hello,world");
+        
         }
     }
 }
