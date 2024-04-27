@@ -1,10 +1,12 @@
 ﻿using Lemon_Net.Common;
+using Lemon_Net.FileSystem;
 using Lemon_Net.Tcp;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.ServiceProcess;
 using System.Text;
@@ -19,6 +21,10 @@ namespace Lemon_NetTest
         public Form1()
         {
             InitializeComponent();
+            string oldFile = @"E:\SoftWares\LemoProjects\ProjectFor2024\南通理工学院校史馆\入口LED屏\LEDScreen\ImgFolder\001.jpg.tmp";
+            string newFile = @"E:\SoftWares\LemoProjects\ProjectFor2024\南通理工学院校史馆\入口LED屏\LEDScreen\ImgFolder\001.jpg";
+            File.Move(oldFile, newFile);
+
 
             Pack pack = new Pack();
             pack.PackData = Encoding.UTF8.GetBytes("He");
@@ -41,11 +47,21 @@ namespace Lemon_NetTest
         private async void button1_Click(object sender, EventArgs e)
         {
             //var buffer= await tcpClient.SendMessageAsync("127.0.0.1", 5025,"Hello", int.Parse(textBox1.Text.Trim()));
-            var buffer = await tcpClient.ReadPackAsync("127.0.0.1", 5025, int.Parse(textBox1.Text.Trim()));
-            await Console.Out.WriteLineAsync($"buffer is returned:");
-            var msg= Encoding.UTF8.GetString(buffer, 0, buffer.Length);
-            await Console.Out.WriteLineAsync(msg);
-            tcpClient.Stop();
+            //var buffer = await tcpClient.ReadPackAsync("127.0.0.1", 5025, int.Parse(textBox1.Text.Trim()));
+            //await Console.Out.WriteLineAsync($"buffer is returned:");
+            //var msg= Encoding.UTF8.GetString(buffer, 0, buffer.Length);
+            //await Console.Out.WriteLineAsync(msg);
+            //tcpClient.Stop();
+
+            OpenFileDialog dlg=new OpenFileDialog();
+            if(dlg.ShowDialog()==DialogResult.OK)
+            {
+
+                string ip = textBox1.Text.Trim();
+                FileClient.SendFile(ip, dlg.FileName, () => { MessageBox.Show("FileTrans Over!"); });
+                //fileClient.SendFile(dlg.FileName);
+            }
+            
         }
     }
 }
