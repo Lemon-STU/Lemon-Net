@@ -64,7 +64,8 @@ namespace Lemon_Net.Tcp
             byte[] packbuffer = null;
             long index = 0;
             long packlen = 0;
-            while(!m_isExit)
+            int packHeaderLen = 16;
+            while (!m_isExit)
             {
                 try
                 {
@@ -73,21 +74,21 @@ namespace Lemon_Net.Tcp
                     if (client.Connected && canRead && client.Available>0)
                     {
                         var stream = client.GetStream();
-                        if (client.Available > 4+8)
+                        if (client.Available > packHeaderLen)
                         {
-                            byte[] buffer= new byte[12];
+                            byte[] buffer= new byte[packHeaderLen];
                             int len= stream.Read(buffer, 0, buffer.Length);//read pack header
-                            if(len<12)
-                                stream.Read(buffer, len, 12-len);
+                            if(len<packHeaderLen)
+                                stream.Read(buffer, len, packHeaderLen-len);
                             packlen = BitConverter.ToInt64(buffer, 4);
                             isPackBegin = true;
                             packbuffer = new byte[packlen];
-                            Array.Copy(buffer, packbuffer, 12);
-                            index = 12;
+                            Array.Copy(buffer, packbuffer, packHeaderLen);
+                            index = packHeaderLen;
                         }
                         if(isPackBegin)
                         {
-                            int len= stream.Read(packbuffer, 12, (int)(packlen - index));
+                            int len= stream.Read(packbuffer, (int)index, (int)(packlen - index));
                             index += len;
                             if(index>=packlen)
                             {

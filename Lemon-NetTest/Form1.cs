@@ -15,13 +15,6 @@ namespace Lemon_NetTest
 {
     public partial class Form1 : Form
     {
-        byte[] data;
-
-        void test(Pack pack)
-        {
-            this.data = pack.PackData;
-        }
-
         TcpServer tcpServer = new TcpServer();
         public Form1()
         {
@@ -36,7 +29,7 @@ namespace Lemon_NetTest
             //tcpServer.Start(5025);
             tcpServer.DataReceived += TcpServer_DataReceived;
 
-           // tcpClient.Start("127.0.0.1",5025);
+            // tcpClient.Start("127.0.0.1",5025);
             
         }
         TcpClient tcpClient = new TcpClient();
@@ -45,10 +38,14 @@ namespace Lemon_NetTest
             Console.WriteLine($"[{DateTime.Now.ToString("HH:mm:ss.fff")}]{e.Message}");
         }
 
-        private void button1_Click(object sender, EventArgs e)
+        private async void button1_Click(object sender, EventArgs e)
         {
-            //tcpClient.SendMessage("hello,world");
-        
+            //var buffer= await tcpClient.SendMessageAsync("127.0.0.1", 5025,"Hello", int.Parse(textBox1.Text.Trim()));
+            var buffer = await tcpClient.ReadPackAsync("127.0.0.1", 5025, int.Parse(textBox1.Text.Trim()));
+            await Console.Out.WriteLineAsync($"buffer is returned:");
+            var msg= Encoding.UTF8.GetString(buffer, 0, buffer.Length);
+            await Console.Out.WriteLineAsync(msg);
+            tcpClient.Stop();
         }
     }
 }

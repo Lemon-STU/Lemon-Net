@@ -44,6 +44,11 @@
     <Compile Include="Common\Pack.cs" />
     <Compile Include="Common\TcpDataEvent.cs" />
     <Compile Include="Common\UdpDataEvent.cs" />
+    <Compile Include="FileSystem\FileClient.cs" />
+    <Compile Include="FileSystem\FileCommon.cs" />
+    <Compile Include="FileSystem\FileItem.cs" />
+    <Compile Include="FileSystem\FileServer.cs" />
+    <Compile Include="Helper\UtilHelper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tcp\TcpClient.cs" />
     <Compile Include="Tcp\TcpServer.cs" />

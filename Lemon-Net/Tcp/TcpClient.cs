@@ -1,4 +1,5 @@
 ﻿using Lemon_Net.Common;
+using Lemon_Net.Helper;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,6 +42,7 @@ namespace Lemon_Net.Tcp
             byte[] packbuffer = null;
             long index = 0;
             long packlen = 0;
+            int packHeaderLen = 16;
             while (!m_isExit)
             {
                 try
@@ -50,21 +52,21 @@ namespace Lemon_Net.Tcp
                     if (m_client.Connected && canRead && m_client.Available > 0)
                     {
                         var stream = m_client.GetStream();
-                        if (m_client.Available > 4 + 8)
+                        if (m_client.Available > packHeaderLen)
                         {
-                            byte[] buffer = new byte[12];
-                            int len = stream.Read(buffer, 0, buffer.Length);//read pack header
-                            if (len < 12)
-                                stream.Read(buffer, len, 12 - len);
+                            byte[] buffer = new byte[packHeaderLen];
+                            int len = stream.Read(buffer, 0, buffer.Length);//read sendPack header
+                            if (len < packHeaderLen)
+                                stream.Read(buffer, len, packHeaderLen - len);
                             packlen = BitConverter.ToInt64(buffer, 4);
                             isPackBegin = true;
                             packbuffer = new byte[packlen];
-                            Array.Copy(buffer, packbuffer, 12);
-                            index = 12;
+                            Array.Copy(buffer, packbuffer, packHeaderLen);
+                            index = packHeaderLen;
                         }
                         if (isPackBegin)
                         {
-                            int len = stream.Read(packbuffer, 12, (int)(packlen - index));
+                            int len = stream.Read(packbuffer, (int)index, (int)(packlen - index));
                             index += len;
                             if (index >= packlen)
                             {
@@ -89,6 +91,8 @@ namespace Lemon_Net.Tcp
                 Thread.Sleep(10);
             }
         }
+        
+        //public 
         public void SendPack(Pack pack)
         {
             if (!m_isExit && m_client != null)
@@ -107,6 +111,10 @@ namespace Lemon_Net.Tcp
         {
             SendPack(Pack.BuildPack(msg));
         }
+        public void SendMessage(int flag,string msg)
+        {
+            SendPack(Pack.BuildPack(0,flag,msg));
+        }
         public void Stop()
         {
             Console.WriteLine("DisConnected form server.............");
@@ -118,6 +126,110 @@ namespace Lemon_Net.Tcp
                 m_client = null;
             }
         }
+
+
+        #region Synchronous Methods
+
+        /// <summary>
+        /// if bytesToRead is 0,it will return immediatelay,if -1 it will read the full pack bytes
+        /// in stream,otherwise it will read unitl the return size is equals bytesToRead
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name="port"></param>
+        /// <param name="bytesToRead"></param>
+        /// <returns></returns>
+        public async Task<byte[]> ReadPackAsync(string ip, int port,int bytesToRead = -1)
+        {
+            try
+            {
+                if (m_client == null)
+                {
+                    m_client = new System.Net.Sockets.TcpClient();
+                }
+                if (!m_client.Connected)
+                    await m_client.ConnectAsync(ip, port);
+                var stream = m_client.GetStream();
+                if (bytesToRead != 0)
+                {
+                    byte[] readBuffer = new byte[0];
+                    if (bytesToRead == -1)
+                    {
+                        byte[] headBuffer = await UtilHelper.ReadBytesAsync(m_client, 16, -1);
+                        if (headBuffer.Length == 16)
+                        {
+                            bytesToRead = (int)BitConverter.ToInt64(headBuffer, 4);
+                            readBuffer = new byte[bytesToRead];
+                            Array.Copy(headBuffer, readBuffer, headBuffer.Length);
+                        }
+                        var databuffer = await UtilHelper.ReadBytesAsync(m_client, bytesToRead - 16, -1);
+                        Array.Copy(databuffer, 0, readBuffer, 16, databuffer.Length);
+                    }
+                    else
+                    {
+                        readBuffer = await UtilHelper.ReadBytesAsync(m_client, bytesToRead, -1);
+                    }
+                    return readBuffer;
+                }
+            }
+            catch { }
+            return new byte[0];
+        }
+     
+
+        /// <summary>
+        /// if bytesToRead is 0,it will return immediatelay,if -1 it will read the full pack bytes
+        /// in stream,otherwise it will read unitl the return size is equals bytesToRead
+        /// </summary>
+        /// <param name="ip">remote server IP</param>
+        /// <param name="port">remote server Port</param>
+        /// <param name="sendPack">data pack to Send</param>
+        /// <param name="bytesToRead">bytes num to read</param>
+        /// <returns></returns>
+        public async Task<byte[]> SendPackAsync(string ip, int port, Pack sendPack,int bytesToRead=0)
+        {          
+            try
+            {
+                if (m_client == null)
+                {
+                    m_client = new System.Net.Sockets.TcpClient();
+                }
+                if (!m_client.Connected)
+                    await m_client.ConnectAsync(ip, port);
+                var stream=m_client.GetStream();
+                var buffer=sendPack.ToBytes();
+                await stream.WriteAsync(buffer, 0, buffer.Length);
+                await stream.FlushAsync();
+                if(bytesToRead!=0)
+                {
+                    byte[] readBuffer = new byte[0];
+                    if (bytesToRead==-1) { 
+                        byte[] headBuffer =await UtilHelper.ReadBytesAsync(m_client, 16,-1);
+                        if(headBuffer.Length==16)
+                        {
+                            bytesToRead=(int)BitConverter.ToInt64(headBuffer,4);
+                            readBuffer = new byte[bytesToRead];
+                            Array.Copy(headBuffer, readBuffer, headBuffer.Length);
+                        }
+                        var databuffer = await UtilHelper.ReadBytesAsync(m_client, bytesToRead - 16, -1);
+                        Array.Copy(databuffer, 0, readBuffer, 16, databuffer.Length);
+                    }
+                    else
+                    {
+                        readBuffer = await UtilHelper.ReadBytesAsync(m_client, bytesToRead, -1);
+                    }                    
+                    return readBuffer;
+                }
+            }
+            catch{}        
+            return new byte[0];
+        }
+        public  Task<byte[]> SendMessageAsync(string ip, int port, string msg, int bytesToRead = 0)
+        {
+            return SendPackAsync(ip,port,Pack.BuildPack(msg),bytesToRead);
+        }
+
+
+        #endregion
         public void Dispose()
         {
             Stop();
