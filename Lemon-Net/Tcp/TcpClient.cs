@@ -39,17 +39,17 @@ namespace Lemon_Net.Tcp
         private void ReceiveThreadProc(object state)
         {
             bool isPackBegin = false;
-            byte[] packbuffer = null;
-            long index = 0;
-            long packlen = 0;
-            int packHeaderLen = 16;
+            byte[] packbuffer = null;//to store the pack data
+            long index = 0;//offset of buffer position
+            long packlen = 0;//pack length
+            int packHeaderLen = Pack.PackHeaderLength;
             while (!m_isExit)
             {
                 try
                 {
                     if (m_client == null) break;
                     var canRead = m_client.Client.Poll(1000, SelectMode.SelectRead);
-                    if (m_client.Connected && canRead && m_client.Available > 0)
+                    if (m_client.Connected && canRead && m_client.Available > 0)//can read and avaiilabe>0 meas hava data pending
                     {
                         var stream = m_client.GetStream();
                         if (m_client.Available > packHeaderLen)
@@ -68,10 +68,12 @@ namespace Lemon_Net.Tcp
                         {
                             int len = stream.Read(packbuffer, (int)index, (int)(packlen - index));
                             index += len;
-                            if (index >= packlen)
+                            if (index >= packlen)//pack is over
                             {
                                 Pack pack = new Pack(packbuffer);
                                 this.DataReceived?.Invoke(this, new TcpDataEvent(pack, m_client.Client.RemoteEndPoint));
+
+                                //reset the variables
                                 isPackBegin = false;
                                 index = 0;
                                 packlen = 0;
@@ -79,7 +81,7 @@ namespace Lemon_Net.Tcp
                             }
                         }
                     }
-                    else if (canRead)
+                    else if (canRead)//otherwise if can read but no data means the connect is bad,just sotp the connection
                     {
                         Stop();
                     }
@@ -92,7 +94,6 @@ namespace Lemon_Net.Tcp
             }
         }
         
-        //public 
         public void SendPack(Pack pack)
         {
             if (!m_isExit && m_client != null)

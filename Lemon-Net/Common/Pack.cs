@@ -9,11 +9,39 @@ namespace Lemon_Net.Common
 {
     public struct Pack
     {
+        /// <summary>
+        /// pack header length=sizeof(PackID)+sizeof(PackLength)+sizeof(PackFlag)
+        /// </summary>
+        public const int PackHeaderLength = sizeof(Int32)+sizeof(Int64)+sizeof(Int32);
+        /// <summary>
+        /// pack index
+        /// </summary>
         public Int32 PackID { get; set; }  
+        /// <summary>
+        /// total pack length include pack header and pack data
+        /// </summary>
         public Int64 PackLength { get; private set; }
+        /// <summary>
+        /// other flag to identify the pack function
+        /// </summary>
         public Int32 PackFlag { get; set; }
+        /// <summary>
+        /// pack data
+        /// </summary>
         public byte[] PackData { get; set; }
-         
+        
+        /// <summary>
+        /// pack data length
+        /// </summary>
+        public Int64 PackDataLength { get
+            {
+                return PackData.Length;
+            } }
+
+        /// <summary>
+        /// convert pack to bytes
+        /// </summary>
+        /// <returns></returns>
         public byte[] ToBytes()
         {
             var idBytes = BitConverter.GetBytes(this.PackID);
@@ -31,6 +59,10 @@ namespace Lemon_Net.Common
             return buffer;
         }
 
+        /// <summary>
+        /// pack buffer to pack
+        /// </summary>
+        /// <param name="buffer"></param>
         public Pack(byte[] buffer)
         {
             PackID = 0;
@@ -47,6 +79,13 @@ namespace Lemon_Net.Common
             }
         }
 
+        /// <summary>
+        /// build pack with id,flag,payload
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="flag"></param>
+        /// <param name="payload"></param>
+        /// <returns></returns>
         public static Pack BuildPack(int id,int flag,string payload)
         {
             Pack pack = new Pack();
@@ -56,15 +95,33 @@ namespace Lemon_Net.Common
             pack.PackLength = pack.PackData.Length + 16;
             return pack;
         }
+        /// <summary>
+        /// build pack
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="payload"></param>
+        /// <returns></returns>
         public static Pack BuildPack(int id,string payload)
         {
             return BuildPack(id, 0, payload);
         }
+        /// <summary>
+        /// build pack
+        /// </summary>
+        /// <param name="payload"></param>
+        /// <returns></returns>
         public static Pack BuildPack(string payload)
         {
             return BuildPack(0,payload);
         }
 
+        /// <summary>
+        /// build pack
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="flag"></param>
+        /// <param name="payload"></param>
+        /// <returns></returns>
         public static Pack BuildPack(int id, int flag, byte[] payload)
         {
             Pack pack = new Pack();
@@ -74,15 +131,31 @@ namespace Lemon_Net.Common
             pack.PackLength = pack.PackData.Length + 16;
             return pack;
         }
+        /// <summary>
+        /// build pack
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="payload"></param>
+        /// <returns></returns>
         public static Pack BuildPack(int id, byte[] payload)
         {
             return BuildPack(id,0,payload);
         }
+
+        /// <summary>
+        /// build pack
+        /// </summary>
+        /// <param name="payload"></param>
+        /// <returns></returns>
         public static Pack BuildPack(byte[] payload)
         {
             return BuildPack(0,payload);
         }
 
+        /// <summary>
+        /// valide if the pack is correct
+        /// </summary>
+        /// <returns></returns>
         public bool IsValidPack()
         {
             return PackLength == this.PackData.Length + 16;

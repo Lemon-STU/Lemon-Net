@@ -64,7 +64,7 @@ namespace Lemon_Net.Tcp
             byte[] packbuffer = null;
             long index = 0;
             long packlen = 0;
-            int packHeaderLen = 16;
+            int packHeaderLen = Pack.PackHeaderLength;
             while (!m_isExit)
             {
                 try
