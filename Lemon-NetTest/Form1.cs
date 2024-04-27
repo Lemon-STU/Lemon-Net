@@ -18,12 +18,14 @@ namespace Lemon_NetTest
     public partial class Form1 : Form
     {
         TcpServer tcpServer = new TcpServer();
+
+        FileServer fileServer = new FileServer();
         public Form1()
         {
             InitializeComponent();
-            string oldFile = @"E:\SoftWares\LemoProjects\ProjectFor2024\南通理工学院校史馆\入口LED屏\LEDScreen\ImgFolder\001.jpg.tmp";
-            string newFile = @"E:\SoftWares\LemoProjects\ProjectFor2024\南通理工学院校史馆\入口LED屏\LEDScreen\ImgFolder\001.jpg";
-            File.Move(oldFile, newFile);
+
+            fileServer.Setup(10005,$"{Environment.CurrentDirectory}\\RecevieFolder");
+
 
 
             Pack pack = new Pack();
