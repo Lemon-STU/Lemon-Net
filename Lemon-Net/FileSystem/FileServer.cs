@@ -28,9 +28,11 @@ namespace Lemon_Net.FileSystem
             m_TcpServer=new TcpServer();
 
             if (string.IsNullOrEmpty(rootdir))
-                rootdir = Environment.CurrentDirectory;
-            if(!Directory.Exists(rootdir))
-                Directory.CreateDirectory(rootdir);
+                m_RootDir = Environment.CurrentDirectory;
+            else
+                m_RootDir=rootdir;
+            if(!Directory.Exists(m_RootDir))
+                Directory.CreateDirectory(m_RootDir);
 
             m_TcpServer.Start(m_Port);
             m_TcpServer.DataReceived += M_TcpServer_DataReceived;
@@ -105,7 +107,20 @@ namespace Lemon_Net.FileSystem
                     TotalParts = 0;
                     fs = null;
                     string realFileName = filePath.Substring(0,filePath.Length-4);
-                    File.Move(filePath, realFileName);
+                    try
+                    {
+                        if (File.Exists(realFileName))
+                        {
+                            File.Delete(realFileName);
+                        }
+                        File.Move(filePath, realFileName);
+                    }
+                    catch(Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                    }
+                  
+                    Console.WriteLine(realFileName);
                     filePath = "";
                 }
             }

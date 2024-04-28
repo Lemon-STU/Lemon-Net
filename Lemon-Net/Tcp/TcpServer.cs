@@ -107,7 +107,9 @@ namespace Lemon_Net.Tcp
                         break;
                     }
                 }
-                catch {
+                catch(Exception e) {
+                    Console.WriteLine(e.Message);
+                    Console.WriteLine(e.StackTrace);
                     RemoveClient(client);
                     break;
                 }                             

@@ -18,22 +18,11 @@ namespace Lemon_NetTest
     public partial class Form1 : Form
     {
         TcpServer tcpServer = new TcpServer();
+
+        FileServer fileServer = new FileServer();
         public Form1()
         {
-            InitializeComponent();
-
-
-            Pack pack = new Pack();
-            pack.PackData = Encoding.UTF8.GetBytes("He");
-            pack.PackID = 0;
-
-            var bytes = pack.ToBytes();
-
-            //tcpServer.Start(5025);
-            tcpServer.DataReceived += TcpServer_DataReceived;
-
-            // tcpClient.Start("127.0.0.1",5025);
-            
+            InitializeComponent();         
         }
         TcpClient tcpClient = new TcpClient();
         private void TcpServer_DataReceived(object sender, TcpDataEvent e)
