@@ -168,6 +168,8 @@ namespace Lemon_Net.FileSystem
         /// <param name="port"></param>
         public static async void SendFile(string ip,string filePath,Action continueWith=null, int port=10005)
         {
+            if(m_AutoResetEvent==null)
+                m_AutoResetEvent = new AutoResetEvent(true);
             m_AutoResetEvent.WaitOne();
             TcpClient m_TcpClient = new TcpClient();
             string filename = Path.GetFileName(filePath);

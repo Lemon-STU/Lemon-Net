@@ -21,9 +21,6 @@ namespace Lemon_NetTest
         public Form1()
         {
             InitializeComponent();
-            string oldFile = @"E:\SoftWares\LemoProjects\ProjectFor2024\南通理工学院校史馆\入口LED屏\LEDScreen\ImgFolder\001.jpg.tmp";
-            string newFile = @"E:\SoftWares\LemoProjects\ProjectFor2024\南通理工学院校史馆\入口LED屏\LEDScreen\ImgFolder\001.jpg";
-            File.Move(oldFile, newFile);
 
 
             Pack pack = new Pack();
@@ -58,7 +55,12 @@ namespace Lemon_NetTest
             {
 
                 string ip = textBox1.Text.Trim();
-                FileClient.SendFile(ip, dlg.FileName, () => { MessageBox.Show("FileTrans Over!"); });
+                var begin = Environment.TickCount;
+                FileClient.SendFile(ip, dlg.FileName, () => { 
+                    var diff=Environment.TickCount- begin;
+                    
+                    MessageBox.Show($"FileTrans Over!Time:{diff}ms"); 
+                });
                 //fileClient.SendFile(dlg.FileName);
             }
             
