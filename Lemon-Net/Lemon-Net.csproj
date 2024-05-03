@@ -41,6 +41,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Common\ExecuteResult.cs" />
+    <Compile Include="Common\FileDataEvent.cs" />
     <Compile Include="Common\Pack.cs" />
     <Compile Include="Common\TcpDataEvent.cs" />
     <Compile Include="Common\UdpDataEvent.cs" />

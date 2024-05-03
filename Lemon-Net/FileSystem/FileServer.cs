@@ -14,6 +14,9 @@ namespace Lemon_Net.FileSystem
         private TcpServer m_TcpServer = null;
         private int m_Port = 0;
         private string m_RootDir;
+
+
+        public event EventHandler<FileDataEvent> OnFileDataEvent;
         public FileServer() { 
             
         }
@@ -107,6 +110,7 @@ namespace Lemon_Net.FileSystem
                     TotalParts = 0;
                     fs = null;
                     string realFileName = filePath.Substring(0,filePath.Length-4);
+                    bool isSuccessful = false;
                     try
                     {
                         if (File.Exists(realFileName))
@@ -114,12 +118,13 @@ namespace Lemon_Net.FileSystem
                             File.Delete(realFileName);
                         }
                         File.Move(filePath, realFileName);
+                        isSuccessful = true;
                     }
                     catch(Exception e)
                     {
                         Console.WriteLine(e.Message);
                     }
-                  
+                    OnFileDataEvent?.Invoke(this,new FileDataEvent(isSuccessful,filePath));
                     Console.WriteLine(realFileName);
                     filePath = "";
                 }

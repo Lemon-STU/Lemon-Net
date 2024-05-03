@@ -131,9 +131,9 @@ namespace Lemon_Net.FileSystem
 
         public async Task<Pack> SendCommand(string command)
         {
-            var bytes= await m_TcpClient.SendPackAsync(this.m_ServerIP,this.m_ServerPort,Pack.BuildPack(0,FileCommand.CommandFlag,command),-1);
+            var executeResult= await m_TcpClient.SendPackAsync(this.m_ServerIP,this.m_ServerPort,Pack.BuildPack(0,FileCommand.CommandFlag,command),-1);
             m_TcpClient.Stop();
-            return new Pack(bytes);
+            return new Pack(executeResult.ResultBuffer);
         }
 
         public async void GetFile(string fileName, string targetFilePath)
@@ -166,11 +166,12 @@ namespace Lemon_Net.FileSystem
         /// <param name="ip"></param>
         /// <param name="filePath"></param>
         /// <param name="port"></param>
-        public static async void SendFile(string ip,string filePath,Action continueWith=null, int port=10005)
+        public static async void SendFile(string ip,string filePath,Action<ExecuteResult> continueWith=null, int port=10005)
         {
+            ExecuteResult result = ExecuteResult.Empty;
             if(m_AutoResetEvent==null)
                 m_AutoResetEvent = new AutoResetEvent(true);
-            m_AutoResetEvent.WaitOne();
+            if (!m_AutoResetEvent.WaitOne(2000)) { continueWith?.Invoke(ExecuteResult.Empty); return; }
             TcpClient m_TcpClient = new TcpClient();
             string filename = Path.GetFileName(filePath);
             using (FileStream fs = new FileStream(filePath, FileMode.Open))
@@ -181,7 +182,15 @@ namespace Lemon_Net.FileSystem
                 long totalParts = fs.Length / FileCommand.BufferMaxLength;
                 if (fs.Length % FileCommand.BufferMaxLength != 0) { totalParts++; }
                 Pack pack = Pack.BuildPack(index++, FileCommand.CommandFileBegin, $"{totalParts}#{filename}");
-                await m_TcpClient.SendPackAsync(ip,port, pack);//send server the file info
+                result= await m_TcpClient.SendPackAsync(ip,port, pack);//send server the file info
+                if (result.Fail)
+                {
+                    continueWith?.Invoke(result);
+                    m_TcpClient.Stop();
+                    m_AutoResetEvent.Set();
+                    m_TcpClient = null;
+                    return;
+                }
                 while ((len = fs.Read(buffer, 0, buffer.Length)) > 0)
                 {
                     if (len == FileCommand.BufferMaxLength)
@@ -192,16 +201,24 @@ namespace Lemon_Net.FileSystem
                         Array.Copy(buffer, tmpbuffer, len);
                         pack = Pack.BuildPack(index++, FileCommand.CommandFilePart, tmpbuffer);
                     }
-                    await m_TcpClient.SendPackAsync(ip,port, pack);//send file parts info
+                    result= await m_TcpClient.SendPackAsync(ip,port, pack);//send file parts info
+                    if(result.Fail)
+                    {
+                        continueWith?.Invoke(result);
+                        m_TcpClient.Stop();
+                        m_AutoResetEvent.Set();
+                        m_TcpClient = null;
+                        return;
+                    }
                     Array.Clear(buffer, 0, buffer.Length);
                 }
                 pack = Pack.BuildPack(index++, FileCommand.CommandFileEnd, "FileEnd");
-                await m_TcpClient.SendPackAsync(ip, port, pack);//send file end info
+                result= await m_TcpClient.SendPackAsync(ip, port, pack);//send file end info
             }
             m_TcpClient.Stop();
             m_AutoResetEvent.Set();
             m_TcpClient= null;
-            continueWith?.Invoke();
+            continueWith?.Invoke(result);
         }
     }
 }
