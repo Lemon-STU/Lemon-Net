@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Lemon_Net.FileSystem
@@ -17,6 +18,14 @@ namespace Lemon_Net.FileSystem
 
 
         public event EventHandler<FileDataEvent> OnFileDataEvent;
+
+        private Queue<Pack> cachedPacks=new Queue<Pack>();
+        private Thread m_writeThread = null;
+        private FileStream fs = null;
+        private int TotalParts = 0;
+        private string filePath = "";
+        private bool m_isExit = false;
+        private bool m_isWriteOver = true;
         public FileServer() { 
             
         }
@@ -29,7 +38,7 @@ namespace Lemon_Net.FileSystem
         {
             m_Port = port;
             m_TcpServer=new TcpServer();
-
+            m_isExit = false;
             if (string.IsNullOrEmpty(rootdir))
                 m_RootDir = Environment.CurrentDirectory;
             else
@@ -39,8 +48,24 @@ namespace Lemon_Net.FileSystem
 
             m_TcpServer.Start(m_Port);
             m_TcpServer.DataReceived += M_TcpServer_DataReceived;
+
+            m_writeThread = new Thread(WriteThreadProc);
+            m_writeThread.IsBackground = true;
+           // m_writeThread.Start();
         }
 
+        private void WriteThreadProc()
+        {
+            while(!m_isExit)
+            {
+                if (cachedPacks.Count > 0)
+                {
+                    var pack = cachedPacks.Dequeue();
+                    ReceiveFile(pack);
+                }
+                Thread.Sleep(10);
+            }
+        }
         private void M_TcpServer_DataReceived(object sender, Common.TcpDataEvent e)
         {
             switch(e.Pack.PackFlag)
@@ -51,6 +76,7 @@ namespace Lemon_Net.FileSystem
                 case FileCommand.CommandFileBegin:
                 case FileCommand.CommandFilePart:
                 case FileCommand.CommandFileEnd:
+                    //cachedPacks.Enqueue(e.Pack);  
                     ReceiveFile(e.Pack);
                     break;                
             }
@@ -75,60 +101,75 @@ namespace Lemon_Net.FileSystem
         }
 
 
-        private FileStream fs=null;
-        private int TotalParts = 0;
-        private string filePath = "";
+        private bool isFileBegin = false;
         private void ReceiveFile(Pack pack)
         {
-            if(pack.PackFlag == FileCommand.CommandFileBegin) {
-                string filestr = Encoding.UTF8.GetString(pack.PackData);
-                string[] args = filestr.Split('#');
-                if(args.Length==2)
+            try
+            {
+                if (pack.PackFlag == FileCommand.CommandFileBegin && m_isWriteOver &&!isFileBegin)
                 {
-                    string strTotalParts = args[0];
-                    TotalParts=int.Parse(strTotalParts);
-                    string fileName =Path.GetFileName(args[1]);
-                    if(fs==null)
+                    isFileBegin = true;
+                    m_isWriteOver = false;
+                    string filestr = Encoding.UTF8.GetString(pack.PackData);
+                    string[] args = filestr.Split('#');
+                    if (args.Length == 2)
                     {
-                        filePath = $"{m_RootDir}\\{fileName}.tmp";
-                        fs = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
+                        string strTotalParts = args[0];
+                        TotalParts = int.Parse(strTotalParts);
+                        string fileName = Path.GetFileName(args[1]);
+                        if (fs == null)
+                        {
+                            filePath = $"{m_RootDir}\\{fileName}";
+                            fs = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.ReadWrite);
+                            AppendLog($"{Path.GetFileName(filePath)} Write begin...");
+                        }
                     }
                 }
-            }
-            else if(pack.PackFlag==FileCommand.CommandFilePart)
-            {
-                if(fs!=null)
+                else if (pack.PackFlag == FileCommand.CommandFilePart && isFileBegin)
                 {
-                    fs.Write(pack.PackData,0,pack.PackData.Length);
+                    if (fs != null)
+                    {
+                        fs.Write(pack.PackData, 0, pack.PackData.Length);
+                        AppendLog($"{Path.GetFileName(filePath)}: {pack.PackID}/{TotalParts}");
+                    }
+                }
+                else if (pack.PackFlag == FileCommand.CommandFileEnd && isFileBegin)
+                {
+                    m_TcpServer.SendMessage("FileEndAck");
+                    if (fs != null)
+                    {
+                        fs.Flush(true);
+                        fs.Close();
+                        TotalParts = 0;
+                        fs = null;
+                        OnFileDataEvent?.Invoke(this, new FileDataEvent(true, filePath));
+                        filePath = "";
+                    }
+                    m_isWriteOver = true;
+                    isFileBegin = false;
+                    AppendLog($"{Path.GetFileName(filePath)} is Write over!");
                 }
             }
-            else if(pack.PackFlag == FileCommand.CommandFileEnd)
+            catch (Exception e)
             {
-                if(fs!=null)
+                if (fs != null)
                 {
                     fs.Close();
-                    TotalParts = 0;
-                    fs = null;
-                    string realFileName = filePath.Substring(0,filePath.Length-4);
-                    bool isSuccessful = false;
-                    try
-                    {
-                        if (File.Exists(realFileName))
-                        {
-                            File.Delete(realFileName);
-                        }
-                        File.Move(filePath, realFileName);
-                        isSuccessful = true;
-                    }
-                    catch(Exception e)
-                    {
-                        Console.WriteLine(e.Message);
-                    }
-                    OnFileDataEvent?.Invoke(this,new FileDataEvent(isSuccessful,filePath));
-                    Console.WriteLine(realFileName);
-                    filePath = "";
                 }
-            }
+                TotalParts = 0;
+                fs = null;
+                filePath = "";
+                m_isWriteOver = true;
+                OnFileDataEvent?.Invoke(this, new FileDataEvent(false, e.Message));
+                AppendLog(e.Message);
+            }        
+        }
+
+        private void AppendLog(string msg)
+        {
+            string file = $"{Environment.CurrentDirectory}\\recelog.txt";
+            File.AppendAllText(file, $"[{DateTime.Now.ToString("HH:mm::ss,fff")}]{msg}\n");
+            File.AppendAllText(file, $"{msg}\n");
         }
     }
 }

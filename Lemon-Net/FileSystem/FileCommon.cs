@@ -26,7 +26,7 @@ namespace Lemon_Net.FileSystem
         public const int CommandFileSuccessful=104;
         public const int CommandFileFail = 105;
 
-        public const int BufferMaxLength = 1024*5;
+        public const int BufferMaxLength = 1024*20;
     }
 
 

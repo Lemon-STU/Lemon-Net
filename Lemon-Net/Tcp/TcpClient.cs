@@ -186,7 +186,7 @@ namespace Lemon_Net.Tcp
         /// <param name="sendPack">data pack to Send</param>
         /// <param name="bytesToRead">bytes num to read</param>
         /// <returns></returns>
-        public async Task<ExecuteResult> SendPackAsync(string ip, int port, Pack sendPack,int bytesToRead=0)
+        public  ExecuteResult SendPack(string ip, int port, Pack sendPack,int bytesToRead=0)
         {         
             ExecuteResult executeResult=ExecuteResult.Empty;
             try
@@ -196,28 +196,28 @@ namespace Lemon_Net.Tcp
                     m_client = new System.Net.Sockets.TcpClient();
                 }
                 if (!m_client.Connected)
-                    await m_client.ConnectAsync(ip, port);
+                    m_client.Connect(ip, port);
                 var stream=m_client.GetStream();
                 var buffer=sendPack.ToBytes();
-                await stream.WriteAsync(buffer, 0, buffer.Length);
-                await stream.FlushAsync();
+                stream.Write(buffer, 0, buffer.Length);
+                stream.Flush();
                 if(bytesToRead!=0)
                 {
                     byte[] readBuffer = new byte[0];
                     if (bytesToRead==-1) { 
-                        byte[] headBuffer =await UtilHelper.ReadBytesAsync(m_client, 16,-1);
+                        byte[] headBuffer =UtilHelper.ReadBytes(m_client, 16,-1);
                         if(headBuffer.Length==16)
                         {
                             bytesToRead=(int)BitConverter.ToInt64(headBuffer,4);
                             readBuffer = new byte[bytesToRead];
                             Array.Copy(headBuffer, readBuffer, headBuffer.Length);
                         }
-                        var databuffer = await UtilHelper.ReadBytesAsync(m_client, bytesToRead - 16, -1);
+                        var databuffer = UtilHelper.ReadBytes(m_client, bytesToRead - 16, -1);
                         Array.Copy(databuffer, 0, readBuffer, 16, databuffer.Length);
                     }
                     else
                     {
-                        readBuffer = await UtilHelper.ReadBytesAsync(m_client, bytesToRead, -1);
+                        readBuffer =UtilHelper.ReadBytes(m_client, bytesToRead, -1);
                     }      
                     executeResult.ResultBuffer = readBuffer;
                     return executeResult;
@@ -229,9 +229,9 @@ namespace Lemon_Net.Tcp
             }        
             return executeResult;
         }
-        public  Task<ExecuteResult> SendMessageAsync(string ip, int port, string msg, int bytesToRead = 0)
+        public  ExecuteResult SendMessage(string ip, int port, string msg, int bytesToRead = 0)
         {
-            return SendPackAsync(ip,port,Pack.BuildPack(msg),bytesToRead);
+            return SendPack(ip,port,Pack.BuildPack(msg),bytesToRead);
         }
 
 

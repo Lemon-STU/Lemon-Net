@@ -46,20 +46,20 @@ namespace Lemon_Net.FileSystem
         }
 
         
-        public async Task<bool> RenameFile(string beforeFileName,string afterFileName)
+        public bool RenameFile(string beforeFileName,string afterFileName)
         {
             string beforeFilePath = $"{m_CurrentDir}/{beforeFileName}";
-            var pack = await SendCommand($"{FileCommand.rename}#{beforeFilePath}:{afterFileName}");
+            var pack = SendCommand($"{FileCommand.rename}#{beforeFilePath}:{afterFileName}");
             if (pack.PackFlag == FileCommand.CommandFileSuccessful)
             {
                 return true;
             }
             return false;
         }
-        public async Task<bool> CreateDirectory(string dir)
+        public bool CreateDirectory(string dir)
         {
             m_CurrentDir = $"{m_CurrentDir}/{dir}";
-            var pack= await SendCommand($"{FileCommand.mkdir}#{m_CurrentDir}");
+            var pack= SendCommand($"{FileCommand.mkdir}#{m_CurrentDir}");
             if(pack.PackFlag==FileCommand.CommandFileSuccessful)
             {
                 return true;
@@ -72,13 +72,13 @@ namespace Lemon_Net.FileSystem
         /// </summary>
         /// <param name="dir"></param>
         /// <returns></returns>
-        public async Task<List<FileItem>> ListDirectory(string dir)
+        public List<FileItem> ListDirectory(string dir)
         {
             List<FileItem> list=new List<FileItem>();
             if (!string.IsNullOrEmpty(m_CurrentDir))
             {
                 m_CurrentDir = $"{m_CurrentDir}/{dir}";
-                var ackPack = await SendCommand($"{FileCommand.cd}#{m_CurrentDir}");
+                var ackPack =SendCommand($"{FileCommand.cd}#{m_CurrentDir}");
                 if (ackPack.PackFlag == FileCommand.CommandFileSuccessful)
                 {
                     if (ackPack.PackData != null)
@@ -102,25 +102,25 @@ namespace Lemon_Net.FileSystem
             }
             return list;
         }
-        public async Task<List<FileItem>> GotoDirectory(string dir)
+        public List<FileItem> GotoDirectory(string dir)
         {
             m_CurrentDir = $"{m_CurrentDir}/{dir}";
-            return await ListDirectory(m_CurrentDir);
+            return ListDirectory(m_CurrentDir);
         }
 
-        public async Task<List<FileItem>> GotoParent()
+        public List<FileItem> GotoParent()
         {
             int pos = m_CurrentDir.LastIndexOf("/");
             m_CurrentDir = m_CurrentDir.Substring(0, pos);
-            return await ListDirectory(m_CurrentDir);
+            return ListDirectory(m_CurrentDir);
         }
 
-        public async Task<bool> DeleteFile(string fileName)
+        public bool DeleteFile(string fileName)
         {
             if (!string.IsNullOrEmpty(m_CurrentDir))
             {
                 string remoteFilePath = $"{m_CurrentDir}/{fileName}";
-                var ackPack= await SendCommand($"{FileCommand.rm}#{remoteFilePath}");
+                var ackPack= SendCommand($"{FileCommand.rm}#{remoteFilePath}");
                 if(ackPack.PackFlag==FileCommand.CommandFileSuccessful)
                 {
                     return true;
@@ -129,9 +129,9 @@ namespace Lemon_Net.FileSystem
             return false;
         }
 
-        public async Task<Pack> SendCommand(string command)
+        public Pack SendCommand(string command)
         {
-            var executeResult= await m_TcpClient.SendPackAsync(this.m_ServerIP,this.m_ServerPort,Pack.BuildPack(0,FileCommand.CommandFlag,command),-1);
+            var executeResult=m_TcpClient.SendPack(this.m_ServerIP,this.m_ServerPort,Pack.BuildPack(0,FileCommand.CommandFlag,command),-1);
             m_TcpClient.Stop();
             return new Pack(executeResult.ResultBuffer);
         }
@@ -139,7 +139,7 @@ namespace Lemon_Net.FileSystem
         public async void GetFile(string fileName, string targetFilePath)
         {
             string filePath = $"{m_CurrentDir}/{fileName}";
-            var pack = await SendCommand($"{FileCommand.get}#{filePath}");
+            var pack = SendCommand($"{FileCommand.get}#{filePath}");
             if (pack.PackFlag == FileCommand.CommandFileSuccessful)
             {
                 string fileinfo = Encoding.UTF8.GetString(pack.PackData);//totalParts#remoteFilePath"
@@ -166,15 +166,15 @@ namespace Lemon_Net.FileSystem
         /// <param name="ip"></param>
         /// <param name="filePath"></param>
         /// <param name="port"></param>
-        public static async void SendFile(string ip,string filePath,Action<ExecuteResult> continueWith=null, int port=10005)
+        public static bool SendFile(string ip,string filePath,Action<ExecuteResult> continueWith=null, int port=10005)
         {
             ExecuteResult result = ExecuteResult.Empty;
             if(m_AutoResetEvent==null)
                 m_AutoResetEvent = new AutoResetEvent(true);
-            if (!m_AutoResetEvent.WaitOne(2000)) { continueWith?.Invoke(ExecuteResult.Empty); return; }
+            if (!m_AutoResetEvent.WaitOne()) { continueWith?.Invoke(ExecuteResult.Empty); return false; }
             TcpClient m_TcpClient = new TcpClient();
             string filename = Path.GetFileName(filePath);
-            using (FileStream fs = new FileStream(filePath, FileMode.Open))
+            using (FileStream fs = new FileStream(filePath, FileMode.Open,FileAccess.Read))
             {
                 byte[] buffer = new byte[FileCommand.BufferMaxLength];
                 int len = 0;
@@ -182,14 +182,16 @@ namespace Lemon_Net.FileSystem
                 long totalParts = fs.Length / FileCommand.BufferMaxLength;
                 if (fs.Length % FileCommand.BufferMaxLength != 0) { totalParts++; }
                 Pack pack = Pack.BuildPack(index++, FileCommand.CommandFileBegin, $"{totalParts}#{filename}");
-                result= await m_TcpClient.SendPackAsync(ip,port, pack);//send server the file info
+                result= m_TcpClient.SendPack(ip,port, pack);//send server the file info
+                Console.WriteLine($"Send file Header is Ok:"+result.ErrCode+" "+result.Result);
+                //AppendLog($"{Path.GetFileName(filePath)}:  {pack.PackID}/{totalParts}");
                 if (result.Fail)
                 {
                     continueWith?.Invoke(result);
                     m_TcpClient.Stop();
                     m_AutoResetEvent.Set();
                     m_TcpClient = null;
-                    return;
+                    return false;
                 }
                 while ((len = fs.Read(buffer, 0, buffer.Length)) > 0)
                 {
@@ -201,24 +203,41 @@ namespace Lemon_Net.FileSystem
                         Array.Copy(buffer, tmpbuffer, len);
                         pack = Pack.BuildPack(index++, FileCommand.CommandFilePart, tmpbuffer);
                     }
-                    result= await m_TcpClient.SendPackAsync(ip,port, pack);//send file parts info
-                    if(result.Fail)
+                    result= m_TcpClient.SendPack(ip,port, pack);//send file parts info
+                    AppendLog($"{Path.GetFileName(filePath)}:  {pack.PackID}/{totalParts}");
+                    if (result.Fail)
                     {
                         continueWith?.Invoke(result);
                         m_TcpClient.Stop();
                         m_AutoResetEvent.Set();
                         m_TcpClient = null;
-                        return;
+                        return false;
                     }
                     Array.Clear(buffer, 0, buffer.Length);
                 }
                 pack = Pack.BuildPack(index++, FileCommand.CommandFileEnd, "FileEnd");
-                result= await m_TcpClient.SendPackAsync(ip, port, pack);//send file end info
+                result=m_TcpClient.SendPack(ip, port, pack,-1);//send file end info and wait for the server end info
+                AppendLog($"{Path.GetFileName(filePath)}:  {pack.PackID}/{totalParts}");
+                Console.WriteLine("send file end....");
             }
-            m_TcpClient.Stop();
-            m_AutoResetEvent.Set();
-            m_TcpClient= null;
-            continueWith?.Invoke(result);
+            Pack serverAckPack = new Pack(result.ResultBuffer);
+            if (result.Success && serverAckPack.ToString().Equals("FileEndAck"))
+            {
+                Console.WriteLine("finished connection......");
+                m_TcpClient.Stop();
+                m_TcpClient = null;
+                result.Result = "Finished";
+                continueWith?.Invoke(result);
+                m_AutoResetEvent.Set();
+            }
+            return true;
+        }
+
+        private static void AppendLog(string msg)
+        {
+            string file = $"{Environment.CurrentDirectory}\\sendlog.txt";
+            File.AppendAllText(file, $"[{DateTime.Now.ToString("HH:mm::ss,fff")}]{msg}\n");
+            File.AppendAllText(file, $"{msg}\n");
         }
     }
 }

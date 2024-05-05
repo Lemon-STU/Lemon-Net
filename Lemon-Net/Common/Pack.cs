@@ -160,5 +160,12 @@ namespace Lemon_Net.Common
         {
             return PackLength == this.PackData.Length + 16;
         }
+
+        public override string ToString()
+        {
+            if (this.PackData == null)
+                return "";
+            return Encoding.UTF8.GetString(this.PackData);
+        }
     }
 }
